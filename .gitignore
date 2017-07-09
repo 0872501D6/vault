@@ -1,0 +1,14 @@
+# editor
+.*.swp
+*~
+
+# idea
+.idea/
+
+# itself
+.vault/
+vault
+*.pgp*
+
+# test_files
+test_files/
