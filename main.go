@@ -18,6 +18,7 @@ const (
 	DB       = "db"
 )
 
+// join strings into a path with delim /
 func makePath(args ...string) string {
 	return strings.Join(args, "/")
 }
@@ -54,7 +55,7 @@ func isCurrentVault() bool {
 	if err != nil {
 		log.Fatal(err.Error())
 	}
-	confDir := fmt.Sprintf("%s/%s", cwd, CONF_DIR)
+	confDir := makePath(cwd, CONF_DIR)
 	_, err = os.Stat(confDir)
 	if os.IsNotExist(err) {
 		return false
@@ -76,37 +77,36 @@ func governedByVault() (string, bool) {
 
 // Initialise a Config folder with an default config file
 func InitConfig() {
-	// create a new hidden folder for config
-	path := fmt.Sprintf("%s", CONF_DIR)
+	wd, err := os.Getwd()
+	path := makePath(wd, CONF_DIR)
+	if err != nil {
+		log.Fatal("cannot get current working directory")
+	}
 	if _, err := os.Stat(path); os.IsNotExist(err) {
 		os.Mkdir(path, 0775)
-		// get current working directory
-		wd, err := os.Getwd()
-		if err != nil {
-			log.Fatal("cannot get current working directory")
-		}
-		fmt.Printf("Initialised a new little vault in %s/%s\n", wd, CONF_DIR)
+		fmt.Printf("Initialised a new little vault in %s\n", path)
 	} else {
 		log.Fatal("Vault config already exists for the current directory")
 	}
 	// create config file
-	conf := fmt.Sprintf("%s/%s", path, CONFIG)
+	conf := makePath(path, CONFIG)
 	confFile := createEmptyFile(conf)
 	defer confFile.Close()
 	// create a credential file
-	cred := fmt.Sprintf("%s/%s", path, CRED)
+	cred := makePath(path, CRED)
 	credFile := createEmptyFile(cred)
 	credFile.Close()
 	// initialise embedded database
-	db := fmt.Sprintf("%s/%s", path, DB)
+	db := makePath(path, DB)
 	createEmptyDir(db)
 	kv := LoadBadger(db)
 	defer kv.Close()
 	// create an empty cache dir
-	cache := fmt.Sprintf("%s/%s", path, CACHE)
+	cache := makePath(path, CACHE)
 	createEmptyDir(cache)
 }
 
+// Open a file
 func OpenFile(fn string) *os.File {
 	file, err := os.Open(fn)
 	if err != nil {
@@ -162,10 +162,10 @@ func WriteConfig(path string, configs map[string]string) {
 func SetConfig(fs *flag.FlagSet) {
 	if vaultDirPath, b := governedByVault(); b {
 		// update the config data
-		confPath := fmt.Sprintf("%s/%s/%s", vaultDirPath, CONF_DIR, CONFIG)
+		confPath := makePath(vaultDirPath, CONF_DIR, CONFIG)
 		conf := ReadConfig(confPath)
 		// update the cred data
-		credPath := fmt.Sprintf("%s/%s/%s", vaultDirPath, CONF_DIR, CRED)
+		credPath := makePath(vaultDirPath, CONF_DIR, CRED)
 		cred := ReadConfig(credPath)
 
 		// update or insert key value map
@@ -202,20 +202,22 @@ func SetConfig(fs *flag.FlagSet) {
 	}
 }
 
+// Wrap the flag set with its command name
 type FlagWrap struct {
-	Name    string
+	Command string
 	FlagSet *flag.FlagSet
 }
 
 // config command flag set
 func configFlagSet() FlagWrap {
+	command := "config"
 	// by default, these config values work after we set AWS_SDK_LOAD_CONFIG=1
-	flagSet := flag.NewFlagSet("config", flag.ExitOnError)
+	flagSet := flag.NewFlagSet(command, flag.ExitOnError)
 	flagSet.String("key", "", "AWS access key ID")
 	flagSet.String("secret", "", "AWS secret access key")
 	flagSet.String("region", "", "AWS service region")
 	flagSet.String("signingkey", "", "Your PGP signing key")
-	return FlagWrap{"config", flagSet}
+	return FlagWrap{command, flagSet}
 }
 
 // init command flag set
@@ -226,20 +228,36 @@ func initFlagSet() FlagWrap {
 
 // add command flag set
 func addFlagSet() FlagWrap {
-	addSet := flag.NewFlagSet("add", flag.ExitOnError)
-	return FlagWrap{"add", addSet}
+	command := "add"
+	addSet := flag.NewFlagSet(command, flag.ExitOnError)
+	return FlagWrap{command, addSet}
 }
 
 // set aws environment variables
 func setAwsEnv(vaultDir string) {
-	os.Setenv("AWS_SDK_LOAD_CONFIG", "1")
-	credentialPath := fmt.Sprintf("%s/%s/credentials", vaultDir, CONF_DIR)
-	os.Setenv("AWS_SHARED_CREDENTIALS_FILE", credentialPath)
+	credPath := makePath(vaultDir, CONF_DIR, CRED)
+	credMap := ReadConfig(credPath)
+	key := credMap["aws_access_key_id"]
+	sec := credMap["aws_secret_access_key"]
+
+	configPath := makePath(vaultDir, CONF_DIR, CONFIG)
+	configMap := ReadConfig(configPath)
+	region := configMap["region"]
+
+	os.Setenv("AWS_DEFAULT_REGION", region)
+	os.Setenv("AWS_ACCESS_KEY_ID", key)
+	os.Setenv("AWS_SECRET_ACCESS_KEY", sec)
+}
+
+func pushFlagSet() FlagWrap {
+	command := "push"
+	pushSet := flag.NewFlagSet(command, flag.ExitOnError)
+	return FlagWrap{command, pushSet}
 }
 
 func printDefaults(fw []FlagWrap) {
 	for _, f := range fw {
-		fmt.Printf("vault %s\n", f.Name)
+		fmt.Printf("vault %s\n", f.Command)
 		f.FlagSet.PrintDefaults()
 	}
 }
@@ -249,7 +267,8 @@ func main() {
 	initCommand := initFlagSet()
 	configCommand := configFlagSet()
 	addCommand := addFlagSet()
-	flags := []FlagWrap{initCommand, configCommand, addCommand}
+	pushCommand := pushFlagSet()
+	flags := []FlagWrap{initCommand, configCommand, addCommand, pushCommand}
 
 	if len(os.Args) < 2 {
 		fmt.Println("Please specify an action")
@@ -264,13 +283,14 @@ func main() {
 		configCommand.FlagSet.Parse(os.Args[2:])
 	case "add":
 		addCommand.FlagSet.Parse(os.Args[2:])
+	case "push":
+		pushCommand.FlagSet.Parse(os.Args[2:])
 	default:
 		printDefaults(flags)
 		os.Exit(1)
 	}
 
 	vaultDir, isGoverned := governedByVault()
-	setAwsEnv(vaultDir)
 	if !isGoverned {
 		// parse commands
 		if initCommand.FlagSet.Parsed() {
@@ -291,6 +311,9 @@ func main() {
 		} else if addCommand.FlagSet.Parsed() {
 			ctx := NewLocalContext(true, getPassphraseFromStdin)
 			AddCache(&ctx, os.Args[2:])
+		} else if pushCommand.FlagSet.Parsed() {
+			ctx := NewAWSContext()
+			pushFiles(vaultDir, &ctx)
 		}
 	}
 }

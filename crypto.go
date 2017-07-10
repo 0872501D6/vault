@@ -143,16 +143,8 @@ func encryptFileHelper(fn, ofp string, entity *openpgp.Entity, signed bool, conf
 	// obtain the hash value as file name
 	body := io.ReadSeeker(bytes.NewReader(br))
 	digest := TreeHash(body)
-	digestPrefix := digest[:2]
-	digestBody := digest[2:]
-	// create folder if it does not exists
-	_, err = os.Stat(ofp + "/" + digestPrefix)
-	objectPath := fmt.Sprintf("%s/%s", digestPrefix, digestBody)
-	if err != nil && os.IsNotExist(err) {
-		os.Mkdir(ofp+"/"+digestPrefix, 0775)
-	}
-	//writeFn := fmt.Sprintf("%s/%s", ofp, objectPath)
-	writeFn := makePath(ofp, objectPath)
+
+	writeFn := makePath(ofp, digest)
 	writer, err := os.OpenFile(writeFn, os.O_WRONLY|os.O_CREATE, 0664)
 	if err != nil {
 		log.Fatal("error opening writer file")

@@ -62,19 +62,13 @@ func NewPrivatePgpInfo(keyId string, passphrase []byte) PrivatePgpInfo {
 // DirectoryProvider provides the base directory of the vault
 // The base directory is where the configurations, caches and database resides
 type DirectoryProvider interface {
-	baseDir() string
+	baseDirectory() string
 }
 
 // AWSCredentialProvider provides the AWS access key id and secret
 type AWSCredentialProvider interface {
 	accessKey() string
 	secret() string
-}
-
-type ConfigReader interface {
-	DirectoryProvider
-	PgpProvider
-	AWSCredentialProvider
 }
 
 type Vault struct {
@@ -172,7 +166,46 @@ func NewLocalContext(private bool, f getPassphrase) LocalContext {
 
 // AWSContext must be provided for operation Push and Fetch
 // It provides vault directory information and aws credentials
-type AWSContext interface {
-	DirectoryProvider
-	AWSCredentialProvider
+type AWSContext struct {
+	dir    string
+	region string
+	key    string
+	sec    string
+}
+
+func (aws AWSContext) baseDirectory() string {
+	return aws.dir
+}
+
+func (aws AWSContext) awsRegion() string {
+	return aws.region
+}
+
+func (aws AWSContext) accessKey() string {
+	return aws.key
+}
+
+func (aws AWSContext) secret() string {
+	return aws.sec
+}
+
+func NewAWSContext() AWSContext {
+	v, err := NewVault()
+	if err != nil {
+		log.Fatal(err.Error())
+	}
+
+	credPath := makePath(v.baseDirectory(), CONF_DIR, CRED)
+	credMap := ReadConfig(credPath)
+	key := credMap["aws_access_key_id"]
+	sec := credMap["aws_secret_access_key"]
+	confPath := makePath(v.baseDirectory(), CONF_DIR, CONFIG)
+	configMap := ReadConfig(confPath)
+	region := configMap["region"]
+	return AWSContext{
+		dir: v.baseDirectory(),
+		region:region,
+		key: key,
+		sec: sec,
+	}
 }

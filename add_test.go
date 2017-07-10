@@ -49,7 +49,7 @@ func TestAddCache(t *testing.T) {
 	newDb()
 	ctx := newPrivLocalContextForTest()
 	pl := AddCache(&ctx, []string{"test_files/test_file"})
-	if len(pl) != 1 || pl[0] != "test_files/.vault/cache/4c/d23549dde14b6a1e1cd08501c599c9a86c098b6a96a15290fc78c237923f58" {
+	if len(pl) != 1 || pl[0] != "test_files/.vault/cache/4cd23549dde14b6a1e1cd08501c599c9a86c098b6a96a15290fc78c237923f58" {
 		t.Fatal("Add cache fails")
 	}
 	os.RemoveAll("test_files/.vault")

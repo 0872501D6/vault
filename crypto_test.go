@@ -9,7 +9,6 @@ import (
 	"io"
 	"io/ioutil"
 	"os"
-	"strings"
 	"testing"
 )
 
@@ -65,6 +64,12 @@ func defaultConfig() *packet.Config {
 	}
 }
 
+func cleanFiles(encryptedFn string) {
+	// clear files
+	os.Remove(encryptedFn)
+	os.Remove(encryptedFn + ".decrypt")
+}
+
 func encryptDecrypt(t *testing.T, ctx *LocalContext, fn string) {
 	config := defaultConfig()
 	ofp := "test_files"
@@ -81,12 +86,8 @@ func encryptDecrypt(t *testing.T, ctx *LocalContext, fn string) {
 	bodyDecrypt := aws.ReadSeekCloser(bytes.NewReader(fbDecrypt))
 	digestDecrypt := TreeHash(bodyDecrypt)
 
-	// directory to remove
-	tokens := strings.Split(encryptedFn, "/")
-	rmDir := strings.Join(tokens[:len(tokens)-1], "/")
-
-	// clear files again
-	os.RemoveAll(rmDir)
+	// clean dir
+	cleanFiles(encryptedFn)
 
 	if digestDecrypt != digestOrig {
 		fatalMsg := fmt.Sprintf("Files don't match\tdecrypt:  %s,\toriginal: %s", digestDecrypt, digestOrig)
@@ -118,6 +119,8 @@ func TestVerifyWithSign(t *testing.T) {
 		if !compareString(sid, "C21B7817") {
 			t.Fatal("It should be signed by C21B7817, but by ", sid)
 		}
+		// clean dir
+		cleanFiles(encryptedFn)
 	}
 	ctx := newPrivLocalContextForTest()
 	encryptVerify(t, &ctx, "test_files/test_file")
@@ -132,6 +135,8 @@ func TestVerifyWithoutSign(t *testing.T) {
 		if b {
 			t.Fatal("It should be not signed")
 		}
+		// clean dir
+		cleanFiles(encryptedFn)
 	}
 	ctx := newPubLocalContextForTest()
 	encryptVerify(t, &ctx, "test_files/test_file")

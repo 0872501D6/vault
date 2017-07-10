@@ -34,27 +34,26 @@ func NewService(region string) *glacier.Glacier {
 
 // Upload a file for a given file name
 // Return error if any occurs
-func UploadFile(fn string, service *glacier.Glacier) error {
+func UploadFile(fn, vault string, service *glacier.Glacier) (*glacier.ArchiveCreationOutput, error) {
 	fileBytes, err := ioutil.ReadFile(fn)
 	if err != nil {
-		return err
+		log.Fatal(err.Error())
 	}
 	body := io.ReadSeeker(bytes.NewReader(fileBytes))
 	digest := aws.String(TreeHash(body))
 	// prepare upload input
 	input := &glacier.UploadArchiveInput{
 		AccountId:          aws.String("-"),
-		ArchiveDescription: aws.String(""),
+		ArchiveDescription: aws.String(fn),
 		Body:               body,
 		Checksum:           digest,
-		VaultName:          aws.String("TestVault"),
+		VaultName:          aws.String(vault),
 	}
 	// upload archive
 	resp, err := service.UploadArchive(input)
 	if err != nil {
 		log.Fatal(err.Error())
-		return err
 	}
 	fmt.Println(resp)
-	return nil
+	return resp, nil
 }

@@ -39,6 +39,16 @@ func insertVaultFile(kv *badger.KV, key string, v VaultFile) {
 	kv.Set(kb, vb)
 }
 
+func updateVaultFileWithDigest(kv *badger.KV, key string, glacierId string) error {
+	vf, err := getVaultFile(kv, key)
+	if err != nil {
+		return err
+	}
+	vf.Glacier = glacierId;
+	insertVaultFile(kv, key, vf)
+	return nil
+}
+
 // Get VaultFile object by key
 func getVaultFile(kv *badger.KV, key string) (VaultFile, error) {
 	var item badger.KVItem
