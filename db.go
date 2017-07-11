@@ -44,7 +44,7 @@ func updateVaultFileWithDigest(kv *badger.KV, key string, glacierId string) erro
 	if err != nil {
 		return err
 	}
-	vf.Glacier = glacierId;
+	vf.Glacier = glacierId
 	insertVaultFile(kv, key, vf)
 	return nil
 }

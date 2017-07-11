@@ -21,7 +21,6 @@ func AddCache(ctx *LocalContext, fns []string) []string {
 		fullPath := makePath(baseDir, fn)
 		digest, path := EncryptFile(ctx, fn, cacheDir, defaultConfig)
 		pathList = append(pathList, path)
-		println(dbDir)
 		kv := LoadBadger(dbDir)
 		vf, err := getVaultFile(kv, digest)
 		if err != nil {

@@ -2,11 +2,10 @@ package main
 
 import (
 	"fmt"
-	"log"
 	"io/ioutil"
+	"log"
 	"os"
 )
-
 
 func updateKV(vaultDir, key, glacierId string) error {
 	dbPath := makePath(vaultDir, CONF_DIR, DB)
@@ -14,7 +13,8 @@ func updateKV(vaultDir, key, glacierId string) error {
 	return updateVaultFileWithDigest(kv, key, glacierId)
 }
 
-func pushFiles(vaultDir string, ctx *AWSContext) {
+func pushFiles(ctx *AWSContext) {
+	vaultDir := ctx.baseDirectory()
 	setAwsEnv(vaultDir)
 	cacheFilePath := makePath(vaultDir, CONF_DIR, CACHE)
 	svc := NewService(ctx.awsRegion())
@@ -29,7 +29,7 @@ func pushFiles(vaultDir string, ctx *AWSContext) {
 	}
 	for _, fi := range files {
 		fn := makePath(cacheFilePath, fi.Name())
-		output, err := UploadFile(fn, "TestVault", svc)
+		output, err := UploadFile(fn, ctx.remote(), svc)
 		if err != nil {
 			continue // silently fail
 		}

@@ -290,7 +290,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	vaultDir, isGoverned := governedByVault()
+	_, isGoverned := governedByVault()
 	if !isGoverned {
 		// parse commands
 		if initCommand.FlagSet.Parsed() {
@@ -313,7 +313,7 @@ func main() {
 			AddCache(&ctx, os.Args[2:])
 		} else if pushCommand.FlagSet.Parsed() {
 			ctx := NewAWSContext()
-			pushFiles(vaultDir, &ctx)
+			pushFiles(&ctx)
 		}
 	}
 }

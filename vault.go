@@ -167,10 +167,11 @@ func NewLocalContext(private bool, f getPassphrase) LocalContext {
 // AWSContext must be provided for operation Push and Fetch
 // It provides vault directory information and aws credentials
 type AWSContext struct {
-	dir    string
-	region string
-	key    string
-	sec    string
+	dir       string // the local dir of vault config
+	region    string // region code http://docs.aws.amazon.com/general/latest/gr/rande.html  example: us-east-1
+	key       string // aws access key id
+	sec       string // aws secret access key
+	remoteDir string // namely the bucket for s3, and vault for glacier
 }
 
 func (aws AWSContext) baseDirectory() string {
@@ -189,6 +190,11 @@ func (aws AWSContext) secret() string {
 	return aws.sec
 }
 
+func (aws AWSContext) remote() string {
+	return aws.remoteDir
+}
+
+// NewAWSContext creates a new context for AWS operations
 func NewAWSContext() AWSContext {
 	v, err := NewVault()
 	if err != nil {
@@ -202,10 +208,12 @@ func NewAWSContext() AWSContext {
 	confPath := makePath(v.baseDirectory(), CONF_DIR, CONFIG)
 	configMap := ReadConfig(confPath)
 	region := configMap["region"]
+	remote := configMap["remote"]
 	return AWSContext{
-		dir: v.baseDirectory(),
-		region:region,
-		key: key,
-		sec: sec,
+		dir:       v.baseDirectory(),
+		region:    region,
+		key:       key,
+		sec:       sec,
+		remoteDir: remote,
 	}
 }
