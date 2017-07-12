@@ -10,29 +10,23 @@ import (
 // KeyIdProvider provides the openpgp key id
 // The key id can be 64 bit long in hex or last 32 long bit in hex
 type KeyIdProvider interface {
-	keyId() string
+	key() string
 }
 
 // PassphraseProvider provides the pass phrase in byte slice
 type PassphraseProvider interface {
-	passphrase() []byte
+	pass() []byte
 }
 
 // PgpProvider provides OpenPGP Key id, and if it's private, the passphrase
 type PgpProvider interface {
-	key() string
-	pass() []byte
+	KeyIdProvider
+	PassphraseProvider
 }
 
 // PublicPgpInfo contains OpenPGP Key id only
 type PublicPgpInfo struct {
 	keyId string
-}
-
-// PrivatePgpInfo contains both Key id and passphrase
-type PrivatePgpInfo struct {
-	keyId      string
-	passphrase []byte
 }
 
 func (info PublicPgpInfo) key() string {
@@ -47,6 +41,12 @@ func NewPublicPgpInfo(keyId string) PublicPgpInfo {
 	return PublicPgpInfo{keyId: keyId}
 }
 
+// PrivatePgpInfo contains both Key id and passphrase
+type PrivatePgpInfo struct {
+	keyId      string
+	passphrase []byte
+}
+
 func (info PrivatePgpInfo) key() string {
 	return info.keyId
 }
@@ -57,18 +57,6 @@ func (info PrivatePgpInfo) pass() []byte {
 
 func NewPrivatePgpInfo(keyId string, passphrase []byte) PrivatePgpInfo {
 	return PrivatePgpInfo{keyId: keyId, passphrase: passphrase}
-}
-
-// DirectoryProvider provides the base directory of the vault
-// The base directory is where the configurations, caches and database resides
-type DirectoryProvider interface {
-	baseDirectory() string
-}
-
-// AWSCredentialProvider provides the AWS access key id and secret
-type AWSCredentialProvider interface {
-	accessKey() string
-	secret() string
 }
 
 type Vault struct {
