@@ -14,6 +14,7 @@ import (
 	"strconv"
 	"strings"
 	"syscall"
+	"time"
 )
 
 type getDirFn func() string
@@ -34,7 +35,7 @@ func getPrivKeyringDir() string {
 	return fmt.Sprintf("%s/.gnupg/secring.gpg", getHomeDir())
 }
 
-func getPassphraseFromStdin() []byte {
+func getPassphraseFromStdin(fn string) []byte {
 	// enter passphrase
 	fmt.Print("Please enter passphrase: ")
 	bytePassword, err := terminal.ReadPassword(int(syscall.Stdin))
@@ -42,7 +43,32 @@ func getPassphraseFromStdin() []byte {
 	if err != nil {
 		log.Fatal("error getting password")
 	}
+	os.Remove(fn)
+	f, err := os.OpenFile(fn, os.O_WRONLY|os.O_CREATE, 0600)
+	defer f.Close()
+
+	f.WriteString("passCacheTime=" + time.Now().Format(time.RFC3339) + "\n")
+	f.WriteString("passCache=" + string(bytePassword) + "\n")
+
 	return bytePassword
+}
+
+func getPassphrase(fn string) []byte {
+	// try local daemon, the first argument is the cred dir
+	if len(fn) != 0 {
+		credMap := ReadConfig(fn)
+		if passCacheTime, ok := credMap["passCacheTime"]; ok {
+			if t, err := time.Parse(time.RFC3339, passCacheTime); err == nil {
+				now := time.Now().Second()
+				duration := now - t.Second()
+				// cache for 1 minutes
+				if passCache, ok := credMap["passCache"]; ok && duration > 0 && duration < 60 {
+					return []byte(passCache)
+				}
+			}
+		}
+	}
+	return getPassphraseFromStdin(fn)
 }
 
 func getEntityList(fn string) openpgp.EntityList {
@@ -190,38 +216,6 @@ func EncryptFile(ctx *LocalContext, fn, ofp string, config *packet.Config) (stri
 		entity = getEntityById(getPubKeyringDir(), ctx.key())
 	}
 	return encryptFileHelper(fn, ofp, entity, signed, config)
-}
-
-// encrypt, and sign a file and output it to a new file with extension pgp
-func signHelper(fn, keyId string, passphrase []byte) {
-	entityList := getEntityList(getPrivKeyringDir())
-	entity := filterEntityById(keyId, &entityList)
-	// key
-	err := entity.PrivateKey.Decrypt(passphrase)
-	if err != nil {
-		log.Fatal("error decrypt private key by using passphrase")
-	}
-	file, err := os.Open(fn)
-	if err != nil {
-		log.Fatal("error opening input file")
-	}
-	defer file.Close()
-	writer, err := os.OpenFile(fn+".signed", os.O_WRONLY|os.O_CREATE, 0664)
-	if err != nil {
-		log.Fatal("error creating writer")
-	}
-	defer writer.Close()
-	defer file.Close()
-	err = openpgp.ArmoredDetachSign(file, entity, file, nil)
-	if err != nil {
-		log.Fatal("error signing")
-	}
-}
-
-func sign(fn, keyId string) {
-	// get passphrase
-	passphrase := getPassphraseFromStdin()
-	signHelper(fn, keyId, passphrase)
 }
 
 type PgpMismatchError struct{}

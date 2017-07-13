@@ -16,6 +16,7 @@ const (
 	CONFIG   = "config"
 	CACHE    = "cache"
 	DB       = "db"
+	PASS     = "pass"
 )
 
 // join strings into a path with delim /
@@ -23,9 +24,9 @@ func makePath(args ...string) string {
 	return strings.Join(args, "/")
 }
 
-// Create an empty file to write with file permission 0664
+// Create an empty file to write with file permission 0600
 func createEmptyFile(fn string) *os.File {
-	f, err := os.OpenFile(fn, os.O_WRONLY|os.O_RDONLY|os.O_CREATE, 0664)
+	f, err := os.OpenFile(fn, os.O_WRONLY|os.O_RDONLY|os.O_CREATE, 0600)
 	if err != nil {
 		log.Fatal(err.Error())
 	}
@@ -104,6 +105,9 @@ func InitConfig() {
 	// create an empty cache dir
 	cache := makePath(path, CACHE)
 	createEmptyDir(cache)
+	// pass
+	pass := makePath(path, PASS)
+	createEmptyFile(pass)
 }
 
 // Open a file
@@ -309,7 +313,7 @@ func main() {
 		} else if configCommand.FlagSet.Parsed() {
 			SetConfig(configCommand.FlagSet)
 		} else if addCommand.FlagSet.Parsed() {
-			ctx := NewLocalContext(true, getPassphraseFromStdin)
+			ctx := NewLocalContext(true, getPassphrase)
 			AddCache(&ctx, os.Args[2:])
 		} else if pushCommand.FlagSet.Parsed() {
 			ctx := NewAWSContext()

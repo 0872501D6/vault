@@ -125,22 +125,23 @@ func (ctx LocalContext) pass() []byte {
 	return ctx.pgp.pass()
 }
 
-type getPassphrase func() []byte
+type passphraseFunc func(path string) []byte
 
 // NewLocalContext creates a new add context object
 // If the add operation requires private key, then mark private as true
 // f is the function to get passphrase
-func NewLocalContext(private bool, f getPassphrase) LocalContext {
+func NewLocalContext(private bool, getPass passphraseFunc) LocalContext {
 	v, err := NewVault()
 	if err != nil {
 		log.Fatal(err.Error())
 	}
 	configPath := makePath(v.baseDirectory(), CONF_DIR, CONFIG)
+	passPath := makePath(v.baseDirectory(), CONF_DIR, PASS)
 	confMap := ReadConfig(configPath)
 	var pgpProvider PgpProvider
 	keyId := confMap["signingkey"]
 	if private {
-		passphrase := f()
+		passphrase := getPass(passPath)
 		pgpProvider = NewPrivatePgpInfo(keyId, passphrase)
 	} else {
 		pgpProvider = NewPublicPgpInfo(keyId)
